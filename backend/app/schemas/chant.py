@@ -1,52 +1,60 @@
 from pydantic import BaseModel
 
-from app.models.chant import ChantType, LiturgicalSeason
+
+# --- Tags ---
 
 
-class ChantBase(BaseModel):
-    title: str
+class TagRead(BaseModel):
+    id: int
+    tag: str
+
+    model_config = {"from_attributes": True}
+
+
+# --- Sources ---
+
+
+class SourceRead(BaseModel):
+    id: int
+    year: int | None = None
+    period: str | None = None
+    editor: str | None = None
+    title: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
+# --- Chants ---
+
+
+class ChantRead(BaseModel):
+    id: int
+    cantus_id: str | None = None
+    version: str | None = None
     incipit: str | None = None
-    chant_type: ChantType
-    mode: int | None = None
-    latin_text: str | None = None
-    source: str | None = None
-
-
-class ChantCreate(ChantBase):
-    pass
-
-
-class ChantRead(ChantBase):
-    id: int
+    office_part: str | None = None
+    mode: str | None = None
+    mode_var: str | None = None
+    commentary: str | None = None
+    gabc: str | None = None
 
     model_config = {"from_attributes": True}
 
 
-class FeastBase(BaseModel):
-    name: str
-    latin_name: str | None = None
-    season: LiturgicalSeason
-    rank: str | None = None
-    day_of_year: int | None = None
-
-
-class FeastCreate(FeastBase):
-    pass
-
-
-class FeastRead(FeastBase):
-    id: int
+class ChantDetail(ChantRead):
+    transcriber: str | None = None
+    gabc_verses: str | None = None
+    tex_verses: str | None = None
+    remarks: str | None = None
+    tags: list[TagRead] = []
 
     model_config = {"from_attributes": True}
 
 
-class FeastChantCreate(BaseModel):
-    feast_id: int
-    chant_id: int
-    position: int | None = None
-
-
-class FeastChantRead(FeastChantCreate):
+class ChantListRead(BaseModel):
     id: int
+    incipit: str | None = None
+    office_part: str | None = None
+    mode: str | None = None
 
     model_config = {"from_attributes": True}

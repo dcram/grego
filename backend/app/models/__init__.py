@@ -1,1 +1,1 @@
-from app.models.chant import Chant, Feast, FeastChant, LiturgicalSeason
+from app.models.chant import Chant, ChantSource, ChantTag, Source, Tag

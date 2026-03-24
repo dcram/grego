@@ -1,16 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import get_db
-from app.models.chant import Chant, Feast, FeastChant
-from app.schemas.chant import (
-    ChantCreate,
-    ChantRead,
-    FeastChantCreate,
-    FeastChantRead,
-    FeastCreate,
-    FeastRead,
-)
+from app.models.chant import Chant, ChantTag, Source, Tag
+from app.schemas.chant import ChantDetail, ChantListRead, SourceRead, TagRead
 
 router = APIRouter(prefix="/api")
 
@@ -18,70 +11,67 @@ router = APIRouter(prefix="/api")
 # --- Chants ---
 
 
-@router.get("/chants", response_model=list[ChantRead])
-def list_chants(db: Session = Depends(get_db)):
-    return db.query(Chant).all()
+@router.get("/chants", response_model=list[ChantListRead])
+def list_chants(
+    office_part: str | None = None,
+    mode: str | None = None,
+    search: str | None = None,
+    tag_id: int | None = None,
+    limit: int = Query(default=50, le=200),
+    offset: int = 0,
+    db: Session = Depends(get_db),
+):
+    q = db.query(Chant)
+    if office_part:
+        q = q.filter(Chant.office_part == office_part)
+    if mode:
+        q = q.filter(Chant.mode == mode)
+    if search:
+        q = q.filter(Chant.incipit.ilike(f"%{search}%"))
+    if tag_id:
+        q = q.join(ChantTag).filter(ChantTag.tag_id == tag_id)
+    return q.order_by(Chant.incipit).offset(offset).limit(limit).all()
 
 
-@router.post("/chants", response_model=ChantRead, status_code=201)
-def create_chant(chant: ChantCreate, db: Session = Depends(get_db)):
-    db_chant = Chant(**chant.model_dump())
-    db.add(db_chant)
-    db.commit()
-    db.refresh(db_chant)
-    return db_chant
-
-
-@router.get("/chants/{chant_id}", response_model=ChantRead)
+@router.get("/chants/{chant_id}", response_model=ChantDetail)
 def get_chant(chant_id: int, db: Session = Depends(get_db)):
-    chant = db.get(Chant, chant_id)
+    chant = (
+        db.query(Chant)
+        .options(joinedload(Chant.tags).joinedload(ChantTag.tag))
+        .filter(Chant.id == chant_id)
+        .first()
+    )
     if not chant:
         raise HTTPException(status_code=404, detail="Chant not found")
+    chant.tags = [ct.tag for ct in chant.tags]
     return chant
 
 
-# --- Feasts ---
+# --- Tags ---
 
 
-@router.get("/feasts", response_model=list[FeastRead])
-def list_feasts(db: Session = Depends(get_db)):
-    return db.query(Feast).all()
-
-
-@router.post("/feasts", response_model=FeastRead, status_code=201)
-def create_feast(feast: FeastCreate, db: Session = Depends(get_db)):
-    db_feast = Feast(**feast.model_dump())
-    db.add(db_feast)
-    db.commit()
-    db.refresh(db_feast)
-    return db_feast
-
-
-@router.get("/feasts/{feast_id}", response_model=FeastRead)
-def get_feast(feast_id: int, db: Session = Depends(get_db)):
-    feast = db.get(Feast, feast_id)
-    if not feast:
-        raise HTTPException(status_code=404, detail="Feast not found")
-    return feast
-
-
-# --- Feast-Chant assignments ---
-
-
-@router.post("/feast-chants", response_model=FeastChantRead, status_code=201)
-def assign_chant_to_feast(
-    assignment: FeastChantCreate, db: Session = Depends(get_db)
+@router.get("/tags", response_model=list[TagRead])
+def list_tags(
+    search: str | None = None,
+    db: Session = Depends(get_db),
 ):
-    db_assignment = FeastChant(**assignment.model_dump())
-    db.add(db_assignment)
-    db.commit()
-    db.refresh(db_assignment)
-    return db_assignment
+    q = db.query(Tag)
+    if search:
+        q = q.filter(Tag.tag.ilike(f"%{search}%"))
+    return q.order_by(Tag.tag).all()
 
 
-@router.get("/feasts/{feast_id}/chants", response_model=list[ChantRead])
-def get_feast_chants(feast_id: int, db: Session = Depends(get_db)):
-    feast = db.get(Feast, feast_id)
-    if not feast:
-        raise HTTPException(status_code=404, detail="Feast not found")
-    return [fc.chant for fc in feast.chants]
+@router.get("/tags/{tag_id}/chants", response_model=list[ChantListRead])
+def get_tag_chants(tag_id: int, db: Session = Depends(get_db)):
+    tag = db.get(Tag, tag_id)
+    if not tag:
+        raise HTTPException(status_code=404, detail="Tag not found")
+    return [ct.chant for ct in tag.chants]
+
+
+# --- Sources ---
+
+
+@router.get("/sources", response_model=list[SourceRead])
+def list_sources(db: Session = Depends(get_db)):
+    return db.query(Source).order_by(Source.title).all()

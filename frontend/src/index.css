@@ -1,3 +1,21 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-stone-50 text-stone-900 antialiased;
+  }
+}
+
+@layer components {
+  .sidebar-link {
+    @apply flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors;
+  }
+  .sidebar-link-active {
+    @apply bg-amber-100 text-amber-900;
+  }
+  .sidebar-link-inactive {
+    @apply text-stone-600 hover:bg-stone-100 hover:text-stone-900;
+  }
+}

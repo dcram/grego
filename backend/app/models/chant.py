@@ -1,75 +1,73 @@
-import enum
-
-from sqlalchemy import Enum, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, ForeignKey, Integer, SmallInteger, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
-
-
-class ChantType(str, enum.Enum):
-    INTROIT = "introit"
-    GRADUAL = "gradual"
-    ALLELUIA = "alleluia"
-    TRACT = "tract"
-    OFFERTORY = "offertory"
-    COMMUNION = "communion"
-    KYRIE = "kyrie"
-    GLORIA = "gloria"
-    CREDO = "credo"
-    SANCTUS = "sanctus"
-    AGNUS_DEI = "agnus_dei"
-    HYMN = "hymn"
-    ANTIPHON = "antiphon"
-    RESPONSORY = "responsory"
-
-
-class LiturgicalSeason(str, enum.Enum):
-    ADVENT = "advent"
-    CHRISTMAS = "christmas"
-    EPIPHANY = "epiphany"
-    SEPTUAGESIMA = "septuagesima"
-    LENT = "lent"
-    PASSIONTIDE = "passiontide"
-    EASTER = "easter"
-    ASCENSION = "ascension"
-    PENTECOST = "pentecost"
-    AFTER_PENTECOST = "after_pentecost"
 
 
 class Chant(Base):
     __tablename__ = "chants"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    title: Mapped[str] = mapped_column(String(255))
-    incipit: Mapped[str | None] = mapped_column(String(255))
-    chant_type: Mapped[ChantType] = mapped_column(Enum(ChantType))
-    mode: Mapped[int | None] = mapped_column(Integer)
-    latin_text: Mapped[str | None] = mapped_column(Text)
-    source: Mapped[str | None] = mapped_column(String(255))
+    cantus_id: Mapped[str | None] = mapped_column(String(32))
+    version: Mapped[str | None] = mapped_column(String(128))
+    incipit: Mapped[str | None] = mapped_column(String(256))
+    initial: Mapped[int] = mapped_column(Integer, default=1)
+    office_part: Mapped[str | None] = mapped_column(String(16))
+    mode: Mapped[str | None] = mapped_column(String(8))
+    mode_var: Mapped[str | None] = mapped_column(String(16))
+    transcriber: Mapped[str | None] = mapped_column(String(128))
+    commentary: Mapped[str | None] = mapped_column(String(256))
+    gabc: Mapped[str | None] = mapped_column(Text)
+    gabc_verses: Mapped[str | None] = mapped_column(Text)
+    tex_verses: Mapped[str | None] = mapped_column(Text)
+    remarks: Mapped[str | None] = mapped_column(Text)
+    copyrighted: Mapped[bool] = mapped_column(Boolean, default=False)
 
-    feasts: Mapped[list["FeastChant"]] = relationship(back_populates="chant")
-
-
-class Feast(Base):
-    __tablename__ = "feasts"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    name: Mapped[str] = mapped_column(String(255))
-    latin_name: Mapped[str | None] = mapped_column(String(255))
-    season: Mapped[LiturgicalSeason] = mapped_column(Enum(LiturgicalSeason))
-    rank: Mapped[str | None] = mapped_column(String(50))
-    day_of_year: Mapped[int | None] = mapped_column(Integer)
-
-    chants: Mapped[list["FeastChant"]] = relationship(back_populates="feast")
+    sources: Mapped[list["ChantSource"]] = relationship(back_populates="chant")
+    tags: Mapped[list["ChantTag"]] = relationship(back_populates="chant")
 
 
-class FeastChant(Base):
-    __tablename__ = "feast_chants"
+class Source(Base):
+    __tablename__ = "sources"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    feast_id: Mapped[int] = mapped_column(ForeignKey("feasts.id"))
-    chant_id: Mapped[int] = mapped_column(ForeignKey("chants.id"))
-    position: Mapped[int | None] = mapped_column(Integer)
+    year: Mapped[int | None] = mapped_column(SmallInteger)
+    period: Mapped[str | None] = mapped_column(String(128))
+    editor: Mapped[str | None] = mapped_column(String(128))
+    title: Mapped[str | None] = mapped_column(String(256))
+    description: Mapped[str | None] = mapped_column(Text)
+    caption: Mapped[str | None] = mapped_column(Text)
 
-    feast: Mapped["Feast"] = relationship(back_populates="chants")
-    chant: Mapped["Chant"] = relationship(back_populates="feasts")
+    chants: Mapped[list["ChantSource"]] = relationship(back_populates="source")
+
+
+class Tag(Base):
+    __tablename__ = "tags"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    tag: Mapped[str] = mapped_column(String(255), unique=True)
+
+    chants: Mapped[list["ChantTag"]] = relationship(back_populates="tag")
+
+
+class ChantSource(Base):
+    __tablename__ = "chant_sources"
+
+    chant_id: Mapped[int] = mapped_column(ForeignKey("chants.id"), primary_key=True)
+    source_id: Mapped[int] = mapped_column(ForeignKey("sources.id"), primary_key=True)
+    page: Mapped[str] = mapped_column(String(16), primary_key=True)
+    sequence: Mapped[int] = mapped_column(Integer, default=1)
+    extent: Mapped[int] = mapped_column(Integer, default=1)
+
+    chant: Mapped["Chant"] = relationship(back_populates="sources")
+    source: Mapped["Source"] = relationship(back_populates="chants")
+
+
+class ChantTag(Base):
+    __tablename__ = "chant_tags"
+
+    chant_id: Mapped[int] = mapped_column(ForeignKey("chants.id"), primary_key=True)
+    tag_id: Mapped[int] = mapped_column(ForeignKey("tags.id"), primary_key=True)
+
+    chant: Mapped["Chant"] = relationship(back_populates="tags")
+    tag: Mapped["Tag"] = relationship(back_populates="chants")
